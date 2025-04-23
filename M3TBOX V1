@@ -1,0 +1,238 @@
+-- M3TBOX V1 (FINAL FIX WITH WORKING SLIDER)
+-- Services
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Cleanup existing GUI
+if game.CoreGui:FindFirstChild("M3TBOX") then
+    game.CoreGui.M3TBOX:Destroy()
+end
+
+-- Create ScreenGui
+local UI = Instance.new("ScreenGui")
+UI.Name = "M3TBOX"
+UI.Parent = game.CoreGui
+UI.ResetOnSpawn = false
+UI.Enabled = true
+
+-- Main frame
+local Main = Instance.new("Frame", UI)
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 300, 0, 450)
+Main.Position = UDim2.new(0.5, -150, 0.5, -225)
+Main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+local stroke = Instance.new("UIStroke", Main)
+stroke.Color = Color3.new(0, 0, 0)
+stroke.Thickness = 2
+stroke.Transparency = 0.7
+
+-- Title
+local Title = Instance.new("TextLabel", Main)
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 22
+Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.Text = "M3TBOX V1"
+
+-- Scrolling area
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Name = "Scroll"
+Scroll.Size = UDim2.new(1, -20, 1, -60)
+Scroll.Position = UDim2.new(0, 10, 0, 50)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 6
+
+-- Layout for scrolling content
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0, 8)
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 8)
+end)
+
+-- Utility: tween
+local function tween(obj, props, time)
+    TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+end
+
+-- Settings and ESP tables
+local settings = {inf=false, afk=false, hb=false, names=false, chams=false, outlines=false, tracers=false}
+settings._hitboxSize = 20  -- initial slider value
+local chamsColors = {
+  Color3.fromRGB(255,0,0),
+  Color3.fromRGB(0,255,0),
+  Color3.fromRGB(0,0,255),
+  Color3.fromRGB(255,255,0)
+}
+local chamsIndex = 1
+local nametags, boxes, tracerLines = {}, {}, {}
+
+-- Create toggle button helper
+local function createToggle(label, key)
+    local btn = Instance.new("TextButton", Scroll)
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 18
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Text = label..": OFF"
+    local cr = Instance.new("UICorner", btn)
+    cr.CornerRadius = UDim.new(0,6)
+    local st = Instance.new("UIStroke", btn)
+    st.Color = Color3.fromRGB(0,170,255)
+    st.Thickness = 1
+    st.Transparency = 0.7
+    btn.LayoutOrder = #Scroll:GetChildren()
+    btn.MouseButton1Click:Connect(function()
+        settings[key] = not settings[key]
+        btn.Text = label..": "..(settings[key] and "ON" or "OFF")
+    end)
+    return btn
+end
+
+-- Create toggles
+createToggle("Infinite Jump", "inf")
+createToggle("Anti-AFK", "afk")
+createToggle("Hitbox", "hb")
+createToggle("ESP Names", "names")
+createToggle("ESP Chams", "chams")
+createToggle("ESP Outlines", "outlines")
+createToggle("ESP Tracers", "tracers")
+
+-- Slider for Hitbox size
+local container = Instance.new("Frame", Scroll)
+container.Size = UDim2.new(1,0,0,60)
+container.BackgroundTransparency = 1
+container.LayoutOrder = #Scroll:GetChildren()
+
+local label = Instance.new("TextLabel", container)
+label.Size = UDim2.new(1,0,0,20)
+label.BackgroundTransparency = 1
+label.Font = Enum.Font.Gotham
+label.TextSize = 16
+label.TextColor3 = Color3.new(1,1,1)
+label.Text = "Hitbox Size: 20"
+label.TextXAlignment = Enum.TextXAlignment.Left
+
+local bar = Instance.new("Frame", container)
+bar.Size = UDim2.new(1,0,0,8)
+bar.Position = UDim2.new(0,0,0,30)
+bar.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Instance.new("UICorner", bar).CornerRadius = UDim.new(0,4)
+local bstr = Instance.new("UIStroke", bar)
+bstr.Color = Color3.fromRGB(0,170,255)
+bstr.Thickness = 1
+bstr.Transparency = 0.7
+
+local dot = Instance.new("Frame", bar)
+dot.Size = UDim2.new(0,16,0,16)
+dot.Position = UDim2.new(settings._hitboxSize/100 - 0.08, 0, -0.4, 0)
+dot.BackgroundColor3 = Color3.fromRGB(0,170,255)
+Instance.new("UICorner", dot).CornerRadius = UDim.new(1,0)
+
+local dragging = false
+dot.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        Main.Draggable = false
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+        Main.Draggable = true
+    end
+end)
+UIS.InputChanged:Connect(function(i)
+    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local x = (i.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X
+        local c = math.clamp(x, 0, 1)
+        dot.Position = UDim2.new(c,-8,-0.4,0)
+        local newSize = math.floor(c * 100)
+        settings._hitboxSize = newSize
+        label.Text = "Hitbox Size: "..newSize
+    end
+end)
+
+-- Infinite jump and AFK functionality
+UIS.JumpRequest:Connect(function()
+    if settings.inf then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+LocalPlayer.Idled:Connect(function()
+    if settings.afk then
+        VirtualUser:Button2Down(Vector2.new(), Camera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.new(), Camera.CFrame)
+    end
+end)
+
+-- ESP/Hitbox update loop
+RunService.RenderStepped:Connect(function()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local head = plr.Character:FindFirstChild("Head")
+            if hrp then
+                -- Hitbox sizing
+                if settings.hb then
+                    pcall(function()
+                        hrp.Size = Vector3.new(settings._hitboxSize, settings._hitboxSize, settings._hitboxSize)
+                        hrp.Transparency = 0.5
+                        hrp.Material = Enum.Material.Neon
+                        hrp.CanCollide = false
+                        hrp.BrickColor = BrickColor.new("Really black")
+                    end)
+                end
+                -- Name tags
+                if settings.names and head then
+                    if not nametags[plr] then
+                        local b = Instance.new("BillboardGui", head)
+                        b.Name = "NameTag"
+                        b.Adornee = head
+                        b.Size = UDim2.new(0,100,0,20)
+                        b.AlwaysOnTop = true
+                        local t = Instance.new("TextLabel", b)
+                        t.Size = UDim2.new(1,0,1,0)
+                        t.BackgroundTransparency = 1
+                        t.Font = Enum.Font.Gotham
+                        t.TextSize = 14
+                        t.TextColor3 = Color3.new(1,1,1)
+                        t.Text = plr.Name
+                        nametags[plr] = b
+                    end
+                else
+                    if nametags[plr] then nametags[plr]:Destroy(); nametags[plr] = nil end
+                end
+                -- Chams
+                if settings.chams then
+                    pcall(function()
+                        hrp.Material = Enum.Material.Neon
+                        hrp.BrickColor = BrickColor.new(chamsColors[chamsIndex])
+                    end)
+                else
+                    pcall(function() hrp.Material = Enum.Material.Plastic end)
+                end
+                -- Outlines
+                if settings.outlines then
+                    if not boxes[plr] then
+                        local box = Instance.new("SelectionBox", plr.Character)
+                        box.Name = "Outline"
+                        box.Adornee = hrp
+                        box.Color3 = Color3.fromRGB(0,170,255)
+                   
+    })); truncated …
