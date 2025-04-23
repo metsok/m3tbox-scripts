@@ -234,5 +234,53 @@ RunService.RenderStepped:Connect(function()
                         box.Name = "Outline"
                         box.Adornee = hrp
                         box.Color3 = Color3.fromRGB(0,170,255)
-                   
-    })); truncated …
+                        boxes[plr] = box
+                    end
+                else
+                    if boxes[plr] then boxes[plr]:Destroy(); boxes[plr] = nil end
+                end
+                -- Tracers
+                if settings.tracers then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        if not tracerLines[plr] then
+                            local line = Drawing.new("Line")
+                            line.Thickness = 1
+                            line.Color = Color3.fromRGB(0,170,255)
+                            tracerLines[plr] = line
+                        end
+                        local startPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                        tracerLines[plr].From = startPos
+                        tracerLines[plr].To = Vector2.new(screenPos.X, screenPos.Y)
+                        tracerLines[plr].Visible = true
+                    end
+                else
+                    if tracerLines[plr] then tracerLines[plr]:Remove(); tracerLines[plr] = nil end
+                end
+            end
+        end
+    end
+end)
+
+-- Chams color cycle button
+local colorBtn = Instance.new("TextButton", Scroll)
+colorBtn.Size = UDim2.new(1,0,0,36)
+colorBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+colorBtn.BorderSizePixel = 0
+colorBtn.Font = Enum.Font.Gotham
+colorBtn.TextSize = 18
+colorBtn.TextColor3 = Color3.new(1,1,1)
+colorBtn.Text = "Chams Color"
+Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,6)
+colorBtn.LayoutOrder = #Scroll:GetChildren()
+colorBtn.MouseButton1Click:Connect(function()
+    chamsIndex = (chamsIndex % #chamsColors) + 1
+end)
+
+-- Hide/show UI
+UIS.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.RightControl then
+        UI.Enabled = not UI.Enabled
+    end
+end)
+]])()
